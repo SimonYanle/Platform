@@ -1,0 +1,39 @@
+#!/bin/sh
+# 本次提交若改动了实质文件，要求当天 devlog 一并更新。
+# 约定见 AGENTS.md，条目格式见 devlog/_TEMPLATE.md。
+
+today=$(date +%Y-%m-%d)
+devlog="devlog/$today.md"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# 只改了 devlog 或协作规范本身，不要求记录（否则会陷入自我循环）
+substantive=$(printf '%s\n' "$staged" \
+  | grep -v -E '^devlog/' \
+  | grep -v -E '^(AGENTS\.md|STATUS\.md|\.githooks/|\.cursor/)')
+
+if [ -z "$substantive" ]; then
+  exit 0
+fi
+
+if [ -n "$SKIP_DEVLOG" ]; then
+  echo "pre-commit: 已按 SKIP_DEVLOG 跳过 devlog 检查"
+  exit 0
+fi
+
+if printf '%s\n' "$staged" | grep -q -x -F "$devlog"; then
+  exit 0
+fi
+
+echo "✗ 提交被拦下：本次改动没有配套的 devlog 记录。"
+echo
+echo "  本次改动的实质文件："
+printf '%s\n' "$substantive" | sed 's/^/    /'
+echo
+echo "  请在 $devlog 追加一条记录后 git add 它。"
+echo "  格式见 devlog/_TEMPLATE.md，判定标准见 AGENTS.md。"
+echo
+echo "  若这次确实无需记录（错别字、格式化等），跳过检查："
+echo "    PowerShell:  \$env:SKIP_DEVLOG=1; git commit ...; \$env:SKIP_DEVLOG=\$null"
+echo "    通用:        git commit --no-verify ..."
+exit 1
